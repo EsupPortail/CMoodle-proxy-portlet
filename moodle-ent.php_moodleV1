@@ -1,0 +1,172 @@
+<?php  // $Id: moodle-ent.php,v 0.2 2012/02/01 $
+
+require_once('../config.php');
+require_once($CFG->libdir.'/blocklib.php');
+require_once($CFG->dirroot.'/course/lib.php');
+require_once('../my/pagelib.php');
+
+$moodle_url="https://moodle.insa-rouen.fr";
+$mode_affichage=1;          // 0 = simple, 1 = detaille
+
+
+// copie de la function course/lib/print_overview avec quelques modifications de mise en forme
+function RUNN_print_overview($courses) {
+
+    global $CFG, $USER;
+    global $mode_affichage;
+    $htmlarray = array();
+    if ($modules = get_records('modules')) {
+        foreach ($modules as $mod) {
+            if (file_exists(dirname(dirname(__FILE__)).'/mod/'.$mod->name.'/lib.php')) {
+                include_once(dirname(dirname(__FILE__)).'/mod/'.$mod->name.'/lib.php');
+                $fname = $mod->name.'_print_overview';
+                if (function_exists($fname)) {
+                    $fname($courses,$htmlarray);
+                }
+            }
+        }
+    }
+    foreach ($courses as $course) {
+        $linkcss = '';
+        if (empty($course->visible)) {
+            $linkcss = 'class="dimmed"';
+        }
+        print('<li><strong><a target="_blank" title="'. format_string($course->fullname).'" '.$linkcss.' href="'.$CFG->wwwroot.'/course/view.php?id='.$course->id.'">'. format_string($course->fullname).'</a></strong></li>'."\n");
+	if ($mode_affichage == 1) {
+            if (array_key_exists($course->id,$htmlarray)) {
+	  	echo "<div style='padding-left:20px'>";
+                foreach ($htmlarray[$course->id] as $modname => $html) {
+                    echo "<small>".$html."</small>\n";
+                }
+		echo "</div>";
+            }
+	}
+    }
+}
+?>
+
+<style type="text/css">
+.assignment, .chat, .choice, .data, .forum, .glossary, .hotpot, .journal, .lams, .lesson, .quiz, .quizport, .referentiel, .scorm, .survey, .wiki, .workshop {
+ background-repeat: no-repeat;
+ padding-left: 20px;
+}
+
+.assignment{
+background-image: url(<?php echo $CFG->themewww .'/'. current_theme() ?>/pix/mod/assignment/icon.gif);
+}
+.chat{
+background-image: url(<?php echo $CFG->themewww .'/'. current_theme() ?>/pix/mod/chat/icon.gif);
+}
+.choice{
+background-image: url(<?php echo $CFG->themewww .'/'. current_theme() ?>/pix/mod/choice/icon.gif);
+}
+.data{
+background-image: url(<?php echo $CFG->themewww .'/'. current_theme() ?>/pix/mod/data/icon.gif);
+}
+.forum{
+background-image: url(<?php echo $CFG->themewww .'/'. current_theme() ?>/pix/mod/forum/icon.gif);
+}
+.glossary{
+background-image: url(<?php echo $CFG->themewww .'/'. current_theme() ?>/pix/mod/glossary/icon.gif);
+}
+.hotpot{
+background-image: url(<?php echo $CFG->themewww .'/'. current_theme() ?>/pix/mod/hotpot/icon.gif);
+}
+.journal{
+background-image: url(<?php echo $CFG->themewww .'/'. current_theme() ?>/pix/mod/journal/icon.gif);
+}
+.lams{
+background-image: url(<?php echo $CFG->themewww .'/'. current_theme() ?>/pix/mod/lams/icon.gif);
+}
+.lesson{
+background-image: url(<?php echo $CFG->themewww .'/'. current_theme() ?>/pix/mod/lesson/icon.gif);
+}
+.quiz{
+background-image: url(<?php echo $CFG->themewww .'/'. current_theme() ?>/pix/mod/quiz/icon.gif);
+}
+.quizport{
+background-image: url(<?php echo $CFG->themewww .'/'. current_theme() ?>/pix/mod/quizport/icon.gif);
+}
+.referentiel{
+background-image: url(<?php echo $CFG->themewww .'/'. current_theme() ?>/pix/mod/referentiel/icon.gif);
+}
+.scorm{
+background-image: url(<?php echo $CFG->themewww .'/'. current_theme() ?>/pix/mod/scorm/icon.gif);
+}
+.survey{
+background-image: url(<?php echo $CFG->themewww .'/'. current_theme() ?>/pix/mod/survey/icon.gif);
+}
+.wiki{
+background-image: url(<?php echo $CFG->themewww .'/'. current_theme() ?>/pix/mod/wiki/icon.gif);
+}
+.workshop{
+background-image: url(<?php echo $CFG->themewww .'/'. current_theme() ?>/pix/mod/workshop/icon.gif);
+}
+</style>
+
+        <div class="cours-moodle">
+          <div class="portlet-section">
+<?php
+              print('<a href="'.$moodle_url.'" target="_blank">Accéder directement à Moodle</a>');
+?>
+              <div class="portlet-section-body">
+                  <h2 class="portlet-section-header">Mes cours...</h2>
+                     <ul>
+
+<?php
+//    require_login(0);
+
+    $uid = $_GET['uid'];
+    $anuser = get_record("user","username", $uid);
+    $mymoodlestr = get_string('mymoodle','my');
+
+    /// The main overview
+    $courses_limit = 21;
+    if (isset($CFG->mycoursesperpage)) {
+        $courses_limit = $CFG->mycoursesperpage;
+    }
+
+    $morecourses = false;
+    if ($courses_limit > 0) {
+        $courses_limit = $courses_limit + 1;
+    }
+
+    $courses = get_my_courses($anuser->id, 'visible DESC,sortorder ASC', '*', false, $courses_limit);
+    $site = get_site();
+
+    if (($courses_limit > 0) && (count($courses) >= $courses_limit)) {
+        //remove the 'marker' course that we retrieve just to see if we have more than $courses_limit
+        array_pop($courses);
+        $morecourses = true;
+    }
+
+    if (array_key_exists($site->id,$courses)) {
+        unset($courses[$site->id]);
+    }
+
+    foreach ($courses as $c) {
+        if (isset($USER->lastcourseaccess[$c->id])) {
+            $courses[$c->id]->lastaccess = $USER->lastcourseaccess[$c->id];
+        } else {
+            $courses[$c->id]->lastaccess = 0;
+        }
+    }
+
+    if (empty($courses)) {
+        print_simple_box(get_string('nocourses','my'),'center');
+    } else {
+        RUNN_print_overview($courses);
+    }
+
+    // if more than 20 courses
+    if ($morecourses) {
+        echo '<br />...';
+    }
+
+?>
+                   </ul>
+            </div>
+          </div>
+       </div>
+
+
